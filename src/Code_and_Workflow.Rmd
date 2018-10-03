@@ -1,0 +1,125 @@
+---
+title: "Code_and_Workflow"
+author: "Laura Tibbs"
+date: "October 3, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Part I: Replicate Unix assignment in R
+
+### Data Inspection
+
+First, we need to read in the files:
+
+```{r}
+# Load packages:
+library(tidyverse)
+
+# Load data:
+# (assumes that working directory is set to the folder "src" within the project; if not, use setwd() to do so)
+genotypes <-  read_tsv("../data/fang_et_al_genotypes.txt")
+snps <- read_tsv("../data/snp_position.txt")
+```
+
+Next, check the "Parsed with column specification..." message in the console to be sure that R guessed the data types correctly:
+The `genotypes` file seems to have the correct column types.
+However, it initially appears that not all of the columns in`snps` do. `Chromosome` and `Position` should be integer rather than character columns. However, first check that this is in fact the case by looking at all values of these columns:
+```{r}
+unique(snps$Chromosome)
+unique(snps$Position)
+```
+This shows that there are in fact entries in these columns that are not integers, specifically "multiple" and "unknown". So, it is correct that these are not parsed as integers. If they really should have been integers, we could fix this by reading the data in again but manually specifying these column types using the `col_types` of `read_csv()`.
+
+Now, we can inspect the data:
+
+```{r}
+genotypes
+snps
+```
+Because `genotypes` and `snps` ae tibbles, R will automatically print only a manageable amount to the screen, even if I don't use `head()` to show only the first part of the data. From what is printed to the screen, I can see that `genotypes` is a tibble with 2782 rows and 986 columns, while `snps` is a tibble with 983 rows and 15 columns. The column names are also visible in this output.
+
+If these objects were not tibbles, we could instead find the type and dimensions as follows:
+``` {r}
+typeof(genotypes)
+typeof(snps)
+
+dim(genotypes)
+dim(snps)
+```
+These give the same dimensions as already listed above, and tells that the data frames are both of type "list". This is expected because tibbles (and data frames) are really just a specific type of list.
+
+The tibbles' overall structure and their attributes (names, dimensions, and class) can also be confirmed with `str()` and `attributes()` (the output of this is quite long, so I will not print the output to the Rmd file, only the code used): 
+# see https://eeob-biodata.github.io/BCB546X-R/03-data-structures/ for any more functions to use; I was at "Attributes" heading after Discussion 1
+``` {r eval=FALSE}
+str(snps)
+str(genotypes)
+
+attributes(snps)
+attributes(genotypes)
+```
+
+Alternately, the name attributes can be found using `names()` (here, I use `head(names(genotypes))` to show only the first few names, but they could all be viewed by removing `head()`):
+```{r}
+names(snps)
+head(names(genotypes))
+```
+
+Finally, the file size can be found using `object.size()`:
+```{r}
+object.size(snps)
+object.size(genotypes)
+```
+Which shows that the file sizes of `snps` and `genotypes` are 305472 and 22992712 bytes, respectively.
+
+### Data Processing
+
+In order to join the `genotypes` and `snps` data to have a file with SNP_ID in the first column, "Chromosome" in the next, "Position" in the third, and individuals' genotype data in the other columns, the `genotype` data frame first needs to be transposed:
+
+```{r}
+tr.genotypes <- t(genotypes) # transpose
+str(tr.genotypes) # check the structure of the new dataframe
+typeof(tr.genotypes)
+```
+
+This transposed the file, but also made it into a character matrix rather than a data frame (a type of list) with columns of different types. To make the data tidier to work with, we can convert the matrix to the tidyverse's tibble data structure:
+
+```{r}
+tr.genotypes <- as.tibble(tr.genotypes)
+typeof(tr.genotypes)
+head(tr.genotypes)
+```
+Converting to a tibble makes it easy to see the types of the columns and the first few rows of their content. We can also see that the columns have been renamed V1, etc. However, we want the column names to be the individual IDs, so fix this using `colnames()`:
+
+```{r}
+colnames(tr.genotypes) <- tr.genotypes[1,] #set the column names to the values currently in the first row
+head(tr.genotypes)
+```
+
+Next, look at the row names. These should match the column names from the original data because the data was transposed, but currently this is not the case. We can fix this manually, but setting row names on tibbles in tidyverse is deprecated, so instead add a new column that contains these values:
+```{r}
+head(rownames(tr.genotypes)) # these do not match the expected row names
+tr.genotypes <- add_column(tr.genotypes, SNP_ID = colnames(genotypes), .before=1) # manually make a new column with "row names"
+```
+
+
+
+
+
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
