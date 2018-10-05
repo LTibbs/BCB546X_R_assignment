@@ -170,15 +170,34 @@ teosinte.known.snps$Chromosome <- as.integer(teosinte.known.snps$Position)
 
 # Loop through the chromosomes to make output files
 for(i in c(1:10)) {
+  
   filter(maize.known.snps, Chromosome==i) %>% #filter maize data by chromosome
     dplyr::arrange(Position) %>% # sort by position in increasing order
     write_tsv(paste("../output/Chr", i, ".maize.increasing.txt", sep="")) #write output to file
+  
   filter(teosinte.known.snps, Chromosome==i) %>% #repeat above process for teosinte
     dplyr::arrange(Position) %>%
     write_tsv(paste("../output/Chr", i, ".teosinte.increasing.txt", sep=""))
 }
 ```
 
+Next, for each of teosinte and maize, make 10 files (one for each chromosome) with SNPs ordered based on decreasing position values and with missing data encoded by -. 
+
+```{r}
+# As above, using files with only snps of known position, loop through the chromosomes to make output files
+for(i in c(1:10)) {
+  
+  filter(maize.known.snps, Chromosome==i) %>% #filter maize data by chromosome
+    dplyr::arrange(desc(Position)) %>% # sort by position in decreasing order
+    mutate_all(funs(str_replace_all(., fixed("?"), "-"))) %>% # replace ? with - to encode missing data; ? is a special character, though, so it is escaped using `fixed`
+    write_tsv(paste("../output/Chr", i, ".maize.decreasing.txt", sep="")) #write output to file
+  
+  filter(teosinte.known.snps, Chromosome==i) %>% #repeat above process for teosinte
+    dplyr::arrange(desc(Position)) %>%
+    mutate_all(funs(str_replace_all(., fixed("?"), "-"))) %>% 
+    write_tsv(paste("../output/Chr", i, ".teosinte.decreasing.txt", sep=""))
+}
+```
 
 ```{r cars}
 summary(cars)
