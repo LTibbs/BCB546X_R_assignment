@@ -30,7 +30,8 @@ The `genotypes` file seems to have the correct column types.
 However, it initially appears that not all of the columns in`snps` do. `Chromosome` and `Position` should be integer rather than character columns. However, first check that this is in fact the case by looking at all values of these columns:
 ```{r}
 unique(snps$Chromosome)
-unique(snps$Position)
+# unique(snps$Position) # this shows that "multiple" is in this column, but prints a very long output to the file.
+head(unique(snps$Position)) # use `head()` here to show only the first part of the long list of positions as an example.
 ```
 This shows that there are in fact entries in these columns that are not integers, specifically "multiple" and "unknown". So, it is correct that these are not parsed as integers. If they really should have been integers, we could fix this by reading the data in again but manually specifying these column types using the `col_types` of `read_csv()`.
 
@@ -53,7 +54,7 @@ dim(snps)
 These give the same dimensions as already listed above, and tells that the data frames are both of type "list". This is expected because tibbles (and data frames) are really just a specific type of list.
 
 The tibbles' overall structure and their attributes (names, dimensions, and class) can also be confirmed with `str()` and `attributes()` (the output of this is quite long, so I will not print the output to the Rmd file, only the code used): 
-# see https://eeob-biodata.github.io/BCB546X-R/03-data-structures/ for any more functions to use; I was at "Attributes" heading after Discussion 1
+
 ``` {r eval=FALSE}
 str(snps)
 str(genotypes)
@@ -76,6 +77,7 @@ object.size(genotypes)
 Which shows that the file sizes of `snps` and `genotypes` are 305472 and 22992712 bytes, respectively.
 
 ### Data Processing
+
 
 In order to join the `genotypes` and `snps` data to have a file with SNP_ID in the first column, "Chromosome" in the next, "Position" in the third, and individuals' genotype data in the other columns, the `genotype` data frame first needs to be transposed:
 
@@ -105,9 +107,77 @@ head(rownames(tr.genotypes)) # these do not match the expected row names
 tr.genotypes <- add_column(tr.genotypes, SNP_ID = colnames(genotypes), .before=1) # manually make a new column with "row names"
 ```
 
+Now, join the transposed genotype file with the snp info file and check it for problems:
+``` {r}
+joined.data <- left_join(tr.genotypes, snps, by="SNP_ID") %>% #join the data
+                select(SNP_ID, Chromosome, Position,everything())# and move the position columns to the front
+head(joined.data) # check the new file
+head(anti_join(snps, tr.genotypes, by="SNP_ID")) # use anti_join to check for unexpected ways that the match might have failed
+head(anti_join(tr.genotypes, snps, by="SNP_ID"))
+```
+Because the only rows found using `anti_join()` were Sample_ID, JG_OTU, and Group, which were known to be absent from the `snps` file, and because the head of the new file looks as it should, the join appears to be successful.
 
+Now, tidy the joined file by removing unnecessary rows and columns:
+```{r}
+joined.data <- filter(joined.data, !((SNP_ID == "Sample_ID") | (SNP_ID=="JG_OTU"))) %>% #remove unneeded Sample_ID and JG_OTU rows
+  select(-cdv_marker_id, -alt_pos, -mult_positions, -amplicon, -cdv_map_feature.name, -gene, -`candidate/random`, -Genaissance_daa_id, -Sequenom_daa_id, -count_amplicons, -count_cmf, -count_gene) #remove unneeded columns originally from the snps dataset 
+```
 
+Split the file into two files, one for each group (maize and teosinte), then remove the group information which won't be needed anymore:
+```{r}
+# initialize the maize and teosinte data files with information that should be in both:
+maize.data <- select(joined.data, SNP_ID, Chromosome, Position)
+teosinte.data <- select(joined.data, SNP_ID, Chromosome, Position)
 
+# loop through the columns to select those in each group
+for (i in 1:length(colnames(joined.data))) {
+  stopifnot(joined.data[1,1]=="Group") #check that the first row of joined.data really does contain the "Group" before beginning
+  
+  # based on the value in the "Group" row, add the column to either the maize or teosinte data set:
+  if (joined.data[1,i] %in% c("ZMMIL", "ZMMLR", "ZMMMR")) {
+    maize.data <- cbind(maize.data, joined.data[,i])
+  }
+  if(joined.data[1,i] %in% c("ZMPBA", "ZMPIL", "ZMPJA")) {
+    teosinte.data <- cbind(teosinte.data, joined.data[,i])
+  }
+}
+
+#remove the group information, and format as tibbles again:
+maize.data <- as.tibble(filter(maize.data, !(SNP_ID=="Group")))
+teosinte.data <- as.tibble(filter(teosinte.data, !(SNP_ID=="Group")))
+
+# check the resulting files:
+head(maize.data)
+head(teosinte.data)
+```
+
+The joined snp and genotype data has been split by group successfully. Now, begin creating output files requested.
+
+First, for each of teosinte and maize, make 10 files (one for each chromosome) with SNPs ordered based on increasing position values and with missing data encoded by ?. Missing data is already encoded by ?, however, so this need not be changed. 
+
+```{r}
+# first, remove SNPs with multiple or unkonwn positions
+maize.known.snps <- filter(maize.data, !(Position %in% c("multiple", "unknown"))) %>%
+  filter(!(Chromosome %in% c("multiple", "unknown")))
+teosinte.known.snps <- filter(teosinte.data, !(Position %in% c("multiple", "unknown"))) %>%
+    filter(!(Chromosome %in% c("multiple", "unknown")))
+
+# Now that there are only integer values in "Chromosome" and "Position" columns, set these as integer rather than character columns
+maize.known.snps$Position <- as.integer(maize.known.snps$Position)
+maize.known.snps$Chromosome <- as.integer(maize.known.snps$Chromosome)
+teosinte.known.snps$Position <- as.integer(teosinte.known.snps$Position)
+teosinte.known.snps$Chromosome <- as.integer(teosinte.known.snps$Position)
+
+# Loop through the chromosomes to make output files
+for(i in c(1:10)) {
+  filter(maize.known.snps, Chromosome==i) %>% #filter maize data by chromosome
+    dplyr::arrange(Position) %>% # sort by position in increasing order
+    write_tsv(paste("../output/Chr", i, ".maize.increasing.txt", sep="")) #write output to file
+  filter(teosinte.known.snps, Chromosome==i) %>% #repeat above process for teosinte
+    dplyr::arrange(Position) %>%
+    write_tsv(paste("../output/Chr", i, ".teosinte.increasing.txt", sep=""))
+}
+```
 
 
 ```{r cars}
