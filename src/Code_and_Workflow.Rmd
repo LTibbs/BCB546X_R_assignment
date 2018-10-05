@@ -166,7 +166,7 @@ teosinte.known.snps <- filter(teosinte.data, !(Position %in% c("multiple", "unkn
 maize.known.snps$Position <- as.integer(maize.known.snps$Position)
 maize.known.snps$Chromosome <- as.integer(maize.known.snps$Chromosome)
 teosinte.known.snps$Position <- as.integer(teosinte.known.snps$Position)
-teosinte.known.snps$Chromosome <- as.integer(teosinte.known.snps$Position)
+teosinte.known.snps$Chromosome <- as.integer(teosinte.known.snps$Chromosome)
 
 # Loop through the chromosomes to make output files
 for(i in c(1:10)) {
