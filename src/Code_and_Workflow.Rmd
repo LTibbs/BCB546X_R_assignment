@@ -17,9 +17,9 @@ library(tidyverse)
 ```
 
 First, set up the project with the following format: 
-- `BCB546X_R_assignment/src` folder contains this code and is set as the working directory (using `setwd()`)
+- `BCB546X_R_assignment/src` folder contains this code as well as the final R Markdown file (including graphs) and is set as the working directory (using `setwd()`)
 - `BCB546X_R_assignment/data` folder already contains the input data files
-- `BCB546X_R_assignment/output` folder is initially empty but will contain output files and graphs
+- `BCB546X_R_assignment/output` folder is initially empty but will contain output files
 
 ### Data Inspection
 
@@ -212,9 +212,22 @@ Visualize the data in this part.
 
 ### SNPs per chromosome
 
-Goal: plot the number of SNPs in the dataset on each chromosome, and determine what groups contribute most of these SNPs.
+Goal: Plot the number of SNPs (only those that are variable WITHIN a given group) by chromosome. Use this figure to determine which group contributes the most SNPs to the dataset that vary intra-group.
 
-To do this, I want a bar chart that has bars for the count of SNPs on each chromosome, and with different fill colors corresponding to the different groups. However, to accomplish this, the data must be in "long" format, with one column for "group" and another column for "Chromosome" for each SNP. 
+To show this, I first need to find the SNPs that vary within a group, by chromosome.
+
+```{r}
+group.snps <- genotypes %>%
+  mutate_all(funs(str_replace_all(., fixed("?/?"), NA))) %>% # first recode "?/?"" as NA
+  
+  # look at https://stackoverflow.com/questions/45326363/using-split-to-create-new-dataframes-in-r-and-rename-based-on-variable-conditio for how to split
+  
+#   # for the first graph (SNPs per chromosome)
+# test <- tibble(group=c("A","A","A","B","C"), chr=c(1,1,2,3,1))
+# ggplot(data=test) +
+#   geom_bar(mapping=aes(x=chr, fill=group))
+
+```
 
 
 ### Missing data and amount of heterozygosity
