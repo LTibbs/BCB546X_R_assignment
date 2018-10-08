@@ -11,16 +11,22 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Part I: Replicate Unix assignment in R
 
+Before beginning, load the tidyverse package:
+```{r}
+library(tidyverse)
+```
+
+First, set up the project with the following format: 
+- `BCB546X_R_assignment/src` folder contains this code and is set as the working directory (using `setwd()`)
+- `BCB546X_R_assignment/data` folder already contains the input data files
+- `BCB546X_R_assignment/output` folder is initially empty but will contain output files and graphs
+
 ### Data Inspection
 
 First, we need to read in the files:
 
 ```{r}
-# Load packages:
-library(tidyverse)
-
 # Load data:
-# (assumes that working directory is set to the folder "src" within the project; if not, use setwd() to do so)
 genotypes <-  read_tsv("../data/fang_et_al_genotypes.txt")
 snps <- read_tsv("../data/snp_position.txt")
 ```
@@ -199,16 +205,81 @@ for(i in c(1:10)) {
 }
 ```
 
-```{r cars}
-summary(cars)
+
+## Part II
+
+Visualize the data in this part.
+
+### SNPs per chromosome
+
+Goal: plot the number of SNPs in the dataset on each chromosome, and determine what groups contribute most of these SNPs.
+
+To do this, I want a bar chart that has bars for the count of SNPs on each chromosome, and with different fill colors corresponding to the different groups. However, to accomplish this, the data must be in "long" format, with one column for "group" and another column for "Chromosome" for each SNP. 
+
+
+### Missing data and amount of heterozygosity
+
+Goal: Make a new column to re-code each SNP as NA (missing data, ?/?), homozygous (A/A, C/C, G/G, or T/T), or heterozygous (otherwise). Then, sort by Group and Species and use to make two graphs to show the proportion of homozygous and heterozygous sites as well as missing data for each group in one graph and for each species in the other graph. In the group graph, normalize the height of the individual bars.
+
+To accomplish this, I do not need the SNPs' positions, only their genotyped values. Therefore, I will use the original `genotypes` file because it is already in an easier layout to work with, with group and species (called `Sample_ID`) already as column names. First, I need to edit the data until it is in "long" form, with three columns: the first with species names, the second with group names, the third with the SNP name, and the fourth with genotypes at that SNP for that species coded as "heterozygous", "homozygous", or NA.
+
+```{r}
+# Re-code the genotype dataset:
+geno.recode <- genotypes %>%
+  mutate_all(funs(str_replace_all(., fixed("?/?"), NA))) %>% #recode all missing data with NA
+  mutate_all(funs(str_replace_all(., (fixed("A/A")), "homozygous"))) %>% #recode homozygous pairs
+  mutate_all(funs(str_replace_all(., (fixed("C/C")), "homozygous"))) %>%
+  mutate_all(funs(str_replace_all(., (fixed("T/T")), "homozygous"))) %>%
+  mutate_all(funs(str_replace_all(., (fixed("G/G")), "homozygous"))) %>%
+  mutate_all(funs(str_replace_all(., (fixed("A/C")), "heterozygous"))) %>% #recode heterozygous pairs
+  mutate_all(funs(str_replace_all(., (fixed("A/G")), "heterozygous"))) %>%
+  mutate_all(funs(str_replace_all(., (fixed("A/T")), "heterozygous"))) %>%
+  mutate_all(funs(str_replace_all(., (fixed("C/A")), "heterozygous"))) %>%
+  mutate_all(funs(str_replace_all(., (fixed("C/G")), "heterozygous"))) %>%
+  mutate_all(funs(str_replace_all(., (fixed("C/T")), "heterozygous"))) %>%
+  mutate_all(funs(str_replace_all(., (fixed("G/A")), "heterozygous"))) %>%
+  mutate_all(funs(str_replace_all(., (fixed("G/C")), "heterozygous"))) %>%
+  mutate_all(funs(str_replace_all(., (fixed("G/T")), "heterozygous"))) %>%
+  mutate_all(funs(str_replace_all(., (fixed("T/A")), "heterozygous"))) %>%
+  mutate_all(funs(str_replace_all(., (fixed("T/C")), "heterozygous"))) %>%
+  mutate_all(funs(str_replace_all(., (fixed("T/G")), "heterozygous")))
+
+# Reformat the dataset to tidy, "long" form:
+geno.recode.tidy <- geno.recode %>%
+  rename(Species=Sample_ID) %>% # rename the "Sample_ID" column to show that it contains species
+  select(-JG_OTU) %>% # remove unneeded column
+  gather(SNP_name, genotype, -Species, -Group)
+
 ```
 
-## Including Plots
+Next, I can make the two graphs; first make the graph that shows heterozygosity, etc. by species:
 
-You can also embed plots, for example:
+```{r}
+species.graph2 <- geno.recode.tidy %>%
+  arrange(Species) # sort by species
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+# Make a graph of SNP count by species that is filled with the genotype value
+ggplot(data=species.graph2) +
+  geom_bar(mapping=aes(x=Species, fill=genotype))
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+As mentioned in the assignment, it is not possible to see species names. However, it is apparent that most species have most sites homozygous, though some have more heterozygous sites than others. In addition, missing data is generally fairly low for most species, but there are a few species with substantially higher missing data counts than the others.
+
+Now, repeat this process with groups instead of species:
+
+```{r, fig.width=10, fig.height=10}
+group.graph2 <- geno.recode.tidy %>%
+  arrange(Species) # sort by species
+
+# Make a graph of SNP count by species that is filled with the genotype value
+ggplot(data=group.graph2) +
+  geom_bar(mapping=aes(x=Group, fill=genotype))
+
+# Now, normalize the heights of the individual bars:
+ggplot(data=group.graph2) +
+  geom_bar(mapping=aes(x=Group, fill=genotype), position="fill")
+
+```
+
+These graphs show the importance of normalizing to compare proportions across groups. In the first graph, without normalizing, the most obvious point is that different groups have drastically different counts of SNPs associated with them, and it is only secondarily apparent that homozygous SNPs appear to be the most common in each group, with lesser numbers of homozygous and missing SNPs. The second graph, with normalization of the bars' heights, shows that some groups have much more missing data than others (e.g., TRIPS has more than 25% missing data for its SNPs but ZMPJA has much less) and some have much higher levels of heterozygosity (e.g., almost 25% of SNPs in ZMPBA are heterozygous, but very few SNPs in ZMMIL are heterozygous).
+
