@@ -40,13 +40,16 @@ snps <- read_tsv("../data/snp_position.txt")
 ```
 
 Next, check the "Parsed with column specification..." message in the console to be sure that R guessed the data types correctly:
+
 The `genotypes` file seems to have the correct column types.
 However, it initially appears that not all of the columns in`snps` do. `Chromosome` and `Position` should be integer rather than character columns. However, first check that this is in fact the case by looking at all values of these columns:
+
 ```{r}
 unique(snps$Chromosome)
 # unique(snps$Position) # this shows that "multiple" is in this column, but prints a very long output to the file.
 head(unique(snps$Position)) # use `head()` here to show only the first part of the long list of positions as an example.
 ```
+
 This shows that there are in fact entries in these columns that are not integers, specifically "multiple" and "unknown". So, it is correct that these are not parsed as integers. If they really should have been integers, we could fix this by reading the data in again but manually specifying these column types using the `col_types` of `read_csv()`.
 
 Now, we can inspect the data:
@@ -256,16 +259,19 @@ graph1$Chromosome <- as.numeric(graph1$Chromosome) # format Chromosome as numeri
 Now that I have a tibble that contains columns of the group, SNP ID, and chromosome location for each SNP that varies within-group, I can make a bar chart to show what proportion of the number of these SNPs on each chromosome is represented by each group:
 
 ```{r}
-# Graph the SNPs by chromosome, filling by Group
+# Graph the SNPs by chromosome, filling by Group:
 ggplot(data=graph1) +
-  geom_bar(mapping=aes(x=Chromosome, fill=Group))
+  geom_bar(mapping=aes(x=Chromosome, fill=Group)) +
+  scale_x_continuous(breaks=c(1:10), labels=c(1:10)) #set axis labels
 
-# However, this makes it difficult to see proportions contributed by each group and each chromosome is not labelled by number as it should be; fix this below:
+# However, this makes it difficult to see proportions contributed by each group; standardize bar heights below:
 ggplot(data=filter(graph1, Chromosome %in% c(1:10))) + # filter out the SNPs on unknown or multiple chromosomes
   geom_bar(mapping=aes(x=Chromosome, fill=Group), position="fill") + # standardize bar height
   scale_x_continuous(breaks=c(1:10), labels=c(1:10))
 
 ```
+
+The first of these graphs shows that some chromosomes contain more SNPs (defined as those that vary within a group) than others; for example, chromosome 1 contains almost 1500 SNPs but chromosome 10 contains only just over 500 SNPs. The second graph, though, better shows the proportions contributed by each group. In general, each group seems to contribute a fairly consistent proportion of the SNPs across each chromosome; for example, ZMMIL always contributes more than ZDIPL to a given chromosome's SNP count.
 
 ### Missing data and amount of heterozygosity
 
@@ -333,3 +339,43 @@ ggplot(data=group.graph2) +
 
 These graphs show the importance of normalizing to compare proportions across groups. In the first graph, without normalizing, the most obvious point is that different groups have drastically different counts of SNPs associated with them, and it is only secondarily apparent that homozygous SNPs appear to be the most common in each group, with lesser numbers of homozygous and missing SNPs. The second graph, with normalization of the bars' heights, shows that some groups have much more missing data than others (e.g., TRIPS has more than 25% missing data for its SNPs but ZMPJA has much less) and some have much higher levels of heterozygosity (e.g., almost 25% of SNPs in ZMPBA are heterozygous, but very few SNPs in ZMMIL are heterozygous).
 
+### My own visualization: A vs C content in basal and derived groups
+
+In 2015, Li et al. published a paper investigating evolutionary patterns of DNA base composition, and in one of their figures compared the A and C content at SNP sites for related species. They found that "derived" species or samples tended to have higher A and lower C (and therefore by Chargaff's rules also higher T and lower G) content than samples that belonged to the ancestral group (which they called "basal"). They hypothesized that this could be due to increased fixation of mutations in a derived population that experienced a bottleneck combined with a known mutation bias towards A:T. (Li, et al. 2015 Nucleic Acids Res. 43(7):3614-3625) 
+
+Goal: Check whether this dataset shows a similar pattern of A vs. C proportions when comparing samples from basal and derived groups (in this case, teosinte and maize).
+
+To accomplish this, first calculate the A and C proportions at all SNP sites for each species, then graph the results by group:
+
+```{r}
+AC.prop <- genotypes %>%
+  mutate_all(funs(str_replace_all(., fixed("?/?"), ""))) %>% #recode all missing data as "" to make easier to use with `unite()` below
+  mutate_all(funs(str_remove_all(., fixed("/")))) %>% # remove all "/" characters
+  unite(united, -c(1:3), sep="") %>% # use `unite()` to join all SNPs into one string that can be searched
+  mutate(maize.or.teosinte=case_when(Group %in% c("ZMMIL", "ZMMLR", "ZMMMR") ~ "maize",
+                                     Group %in% c("ZMPBA", "ZMPIL", "ZMPJA") ~ "teosinte",
+                                     TRUE ~ "other"), #make a column to show maize or teosinte
+         count.A=str_count(united, "A"), # count each nucleotide in the SNPs
+         count.C=str_count(united,"C"),
+         count.G=str_count(united, "G"),
+         count.T=str_count(united,"T"),
+         total=count.A + count.C + count.G + count.T, # find total bp examined
+         proportion.A=count.A/total, # find proportions of each NT
+         proportion.C=count.C/total,
+         proportion.G=count.G/total,
+         proportion.T=count.T/total,
+         check = proportion.A + proportion.C + proportion.G + proportion.T-1) # make the check row show 0 if all proportions add to 1 as expected
+  
+    stopifnot(near(0,sum(AC.prop$check))) # make sure that the check row has all 0s as expected
+
+
+# Graph the proportions by group:
+ggplot(AC.prop, aes(proportion.A, proportion.C, color=maize.or.teosinte, shape=maize.or.teosinte)) +
+  geom_point() +
+  theme(legend.title = element_blank()) +
+  xlab("Proportion of A alleles") +
+  ylab("Proportion of C alleles")
+
+```
+
+The figure above shows that maize individuals overall do seem to have a somewhat higher proportion of A alleles at any given C allele proportion compared to the teosinte individuals at the SNPs in this dataset, but there is considerable overlap. Interestingly, the "other" individuals, which the UNIX assignment states are Tripsacum individuals, show a more substantial shift toward C allele proportion at a given A allele proportion than either maize or teosinte. Because Tripsacum is in a sense basal to both maize and teosinte, this agrees with the results of the Li, et al. paper. However, if this pattern of allele frequency is in fact related to bottleneck events, then more information about past population size and bottlenecks would be necessary to determine if this dataset does really follow the pattern of A:T enrichment in derived, bottlenecked populations.
