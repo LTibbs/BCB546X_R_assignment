@@ -21,9 +21,17 @@ First, set up the project with the following format:
 - `BCB546X_R_assignment/data` folder already contains the input data files
 - `BCB546X_R_assignment/output` folder is initially empty but will contain output files
 
+If the input data is not already in the `data` folder, run the following to download the data:
+```{r} 
+getwd() #check that the working directory ends in "BCB546X_R_assignment/src"
+
+# Download files:
+download.file("https://raw.githubusercontent.com/EEOB-BioData/BCB546X-Fall2018/master/assignments/UNIX_Assignment/fang_et_al_genotypes.txt", destfile = "../data/fang_et_al_genotypes.txt")
+download.file("https://raw.githubusercontent.com/EEOB-BioData/BCB546X-Fall2018/master/assignments/UNIX_Assignment/snp_position.txt", destfile="../data/snp_position.txt")
+```
 ### Data Inspection
 
-First, we need to read in the files:
+First, we need to read data from the files:
 
 ```{r}
 # Load data:
@@ -75,12 +83,12 @@ names(snps)
 head(names(genotypes))
 ```
 
-Finally, the file size can be found using `object.size()`:
+Finally, the size of the data as R objects can be found using `object.size()`:
 ```{r}
 object.size(snps)
 object.size(genotypes)
 ```
-Which shows that the file sizes of `snps` and `genotypes` are 305472 and 22992712 bytes, respectively.
+Which shows that the sizes of `snps` and `genotypes` are `r object.size(snps)` and `r object.size(genotypes)`, respectively.
 
 ### Data Processing
 
@@ -214,21 +222,50 @@ Visualize the data in this part.
 
 Goal: Plot the number of SNPs (only those that are variable WITHIN a given group) by chromosome. Use this figure to determine which group contributes the most SNPs to the dataset that vary intra-group.
 
-To show this, I first need to find the SNPs that vary within a group, by chromosome.
+To show this, I first need to find the SNPs from `genotypes` that vary within a group, by chromosome. Do this by splitting the genotype file by group, finding which SNPs vary within each group and saving these,  constructing a tibble from this information, and joining this with `snps` to find the chromosome values for each snp:
 
 ```{r}
 group.snps <- genotypes %>%
   mutate_all(funs(str_replace_all(., fixed("?/?"), NA))) %>% # first recode "?/?"" as NA
-  
-  # look at https://stackoverflow.com/questions/45326363/using-split-to-create-new-dataframes-in-r-and-rename-based-on-variable-conditio for how to split
-  
-#   # for the first graph (SNPs per chromosome)
-# test <- tibble(group=c("A","A","A","B","C"), chr=c(1,1,2,3,1))
-# ggplot(data=test) +
-#   geom_bar(mapping=aes(x=chr, fill=group))
+  group_by(Group) #group by Group
+split.group.snps <- split(group.snps, group.snps$Group) # split dataframes by group and store them in a list
+
+loop.output <- tibble(Group=character(), SNP_ID=character()) # initialize a tibble to store SNPs
+for (i in 1:length(split.group.snps)) { # loop through the groups
+  for (j in 4:ncol(split.group.snps[[i]])) { # loop through the SNPs
+    if (nrow(unique(na.omit(split.group.snps[[i]][,j])))>1) { # look for SNPs with more than one non-NA value
+    loop.output <- add_row(loop.output, Group=names(split.group.snps)[i], 
+            SNP_ID=colnames(split.group.snps[[i]])[j])
+      # save these SNPs (and the group they belong to) to the output tibble
+    }
+  }
+}
+
+# Check that the tibble was filled without any NA values
+stopifnot(sum(is.na(loop.output$Group))==0) 
+stopifnot(sum(is.na(loop.output$SNP_ID))==0)
+
+# Now, join with `snps` to find the chromosome associated with each SNP:
+graph1 <- left_join(loop.output, snps, by="SNP_ID") %>%
+  select(Group, SNP_ID, Chromosome) %>% # select only the needed columns
+  filter(Chromosome %in% c(1:10)) # remove those SNPs that are on multiple or unknown chromosomes
+graph1$Chromosome <- as.numeric(graph1$Chromosome) # format Chromosome as numeric so that it will be sorted numerically rather than alphabetically
 
 ```
 
+Now that I have a tibble that contains columns of the group, SNP ID, and chromosome location for each SNP that varies within-group, I can make a bar chart to show what proportion of the number of these SNPs on each chromosome is represented by each group:
+
+```{r}
+# Graph the SNPs by chromosome, filling by Group
+ggplot(data=graph1) +
+  geom_bar(mapping=aes(x=Chromosome, fill=Group))
+
+# However, this makes it difficult to see proportions contributed by each group and each chromosome is not labelled by number as it should be; fix this below:
+ggplot(data=filter(graph1, Chromosome %in% c(1:10))) + # filter out the SNPs on unknown or multiple chromosomes
+  geom_bar(mapping=aes(x=Chromosome, fill=Group), position="fill") + # standardize bar height
+  scale_x_continuous(breaks=c(1:10), labels=c(1:10))
+
+```
 
 ### Missing data and amount of heterozygosity
 
