@@ -17,9 +17,12 @@ library(tidyverse)
 ```
 
 First, set up the project with the following format: 
-- `BCB546X_R_assignment/src` folder contains this code as well as the final R Markdown file (including graphs) and is set as the working directory (using `setwd()`)
-- `BCB546X_R_assignment/data` folder already contains the input data files
-- `BCB546X_R_assignment/output` folder is initially empty but will contain output files
+
+* `BCB546X_R_assignment/src` folder contains this code as well as the final R Markdown file (including graphs) and is set as the working directory (using `setwd()`)
+
+* `BCB546X_R_assignment/data` folder already contains the input data files
+
+* `BCB546X_R_assignment/output` folder is initially empty but will contain output files
 
 If the input data is not already in the `data` folder, run the following to download the data:
 ```{r} 
@@ -50,7 +53,7 @@ unique(snps$Chromosome)
 head(unique(snps$Position)) # use `head()` here to show only the first part of the long list of positions as an example.
 ```
 
-This shows that there are in fact entries in these columns that are not integers, specifically "multiple" and "unknown". So, it is correct that these are not parsed as integers. If they really should have been integers, we could fix this by reading the data in again but manually specifying these column types using the `col_types` of `read_csv()`.
+This shows that there are in fact entries in these columns that are not integers, specifically "multiple" and "unknown". So, it is correct that these are not parsed as integers. If they really should have been integers, we could fix this by reading the data in again but manually specifying these column types using the `col_types` argument of `read_tsv()`.
 
 Now, we can inspect the data:
 
@@ -58,7 +61,7 @@ Now, we can inspect the data:
 genotypes
 snps
 ```
-Because `genotypes` and `snps` ae tibbles, R will automatically print only a manageable amount to the screen, even if I don't use `head()` to show only the first part of the data. From what is printed to the screen, I can see that `genotypes` is a tibble with 2782 rows and 986 columns, while `snps` is a tibble with 983 rows and 15 columns. The column names are also visible in this output.
+Because `genotypes` and `snps` are tibbles, R will automatically print only a manageable amount to the screen, even if I don't use `head()` to show only the first part of the data. From what is printed to the screen, I can see that `genotypes` is a tibble with 2782 rows and 986 columns, while `snps` is a tibble with 983 rows and 15 columns. The column names are also visible in this output.
 
 If these objects were not tibbles, we could instead find the type and dimensions as follows:
 ``` {r}
@@ -91,12 +94,12 @@ Finally, the size of the data as R objects can be found using `object.size()`:
 object.size(snps)
 object.size(genotypes)
 ```
-Which shows that the sizes of `snps` and `genotypes` are `r object.size(snps)` and `r object.size(genotypes)`, respectively.
+Which shows that the sizes of `snps` and `genotypes` are `r object.size(snps)` and `r object.size(genotypes)` bytes, respectively.
 
 ### Data Processing
 
 
-In order to join the `genotypes` and `snps` data to have a file with SNP_ID in the first column, "Chromosome" in the next, "Position" in the third, and individuals' genotype data in the other columns, the `genotype` data frame first needs to be transposed:
+In order to join the `genotypes` and `snps` data to have a file with "SNP_ID" in the first column, "Chromosome" in the next, "Position" in the third, and individuals' genotype data in the other columns, the `genotype` data frame first needs to be transposed:
 
 ```{r}
 tr.genotypes <- t(genotypes) # transpose
@@ -223,7 +226,7 @@ Visualize the data in this part.
 
 ### SNPs per chromosome
 
-Goal: Plot the number of SNPs (only those that are variable WITHIN a given group) by chromosome. Use this figure to determine which group contributes the most SNPs to the dataset that vary intra-group.
+Goal: Plot the number of SNPs (only those that are variable WITHIN a given group) by chromosome. Use this figure to determine which groups contribute the most SNPs to the dataset that vary intra-group.
 
 To show this, I first need to find the SNPs from `genotypes` that vary within a group, by chromosome. Do this by splitting the genotype file by group, finding which SNPs vary within each group and saving these,  constructing a tibble from this information, and joining this with `snps` to find the chromosome values for each snp:
 
@@ -271,7 +274,7 @@ ggplot(data=filter(graph1, Chromosome %in% c(1:10))) + # filter out the SNPs on 
 
 ```
 
-The first of these graphs shows that some chromosomes contain more SNPs (defined as those that vary within a group) than others; for example, chromosome 1 contains almost 1500 SNPs but chromosome 10 contains only just over 500 SNPs. The second graph, though, better shows the proportions contributed by each group. In general, each group seems to contribute a fairly consistent proportion of the SNPs across each chromosome; for example, ZMMIL always contributes more than ZDIPL to a given chromosome's SNP count.
+The first of these graphs shows that some chromosomes contain more SNPs (defined as those that vary within a group) than others; for example, chromosome 1 contains almost 1500 SNPs but chromosome 10 contains only just over 500 SNPs. The second graph, though, better shows the proportions contributed by each group. In general, each group seems to contribute a fairly consistent proportion of the SNPs across each chromosome; for example, ZMMIL always contributes more than ZDIPL to a given chromosome's SNP count. In general, it appears that the groups including ZMMIL, ZMMLR, ZMMMR, ZMPBA, ZMPIL, ZMPJA, ZMXCH, and ZMXCP contribute the most SNPs to each chromosome.
 
 ### Missing data and amount of heterozygosity
 
