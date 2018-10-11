@@ -328,9 +328,9 @@ Now, repeat this process with groups instead of species:
 
 ```{r, fig.width=10, fig.height=10}
 group.graph2 <- geno.recode.tidy %>%
-  arrange(Species) # sort by species
+  arrange(Group) # sort by group
 
-# Make a graph of SNP count by species that is filled with the genotype value
+# Make a graph of SNP count by group that is filled with the genotype value
 ggplot(data=group.graph2) +
   geom_bar(mapping=aes(x=Group, fill=genotype))
 
