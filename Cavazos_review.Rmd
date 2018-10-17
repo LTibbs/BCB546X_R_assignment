@@ -1,0 +1,30 @@
+---
+title: "Cavazos_Review for LTibbs"
+author: "Brittany Cavazos"
+date: "October 16, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+_General comments_ - 
+Commenting throughout the Rmd was thorough
+
+### **Comments on inspecting**
+
+The data files were inspected to using functions like `typeof`, `dim`, `str`, `attributes`, etc.
+
+### **Comments on writing data**
+
+Maize and teosinte data were split correctly,and sorted appropriately. Missing data was encoded, and the 40 files were produced with correct names and put into an output folder. All positions appear to be in correct order. 
+
+### **Comments on graphing**
+
+Output of graphs is generally correct. The SNPs per chromosome is plotted. A new column is created for missing data. The heterozygosity looks to be plotted correctly. 
+The graphs successfully show the proportion of homozygous, hetreozygous and NA sites by species and group. Their graphs show groups including ZMMIL, ZMMLR, ZMMMR, ZMPBA, ZMPIL, ZMPJA, ZMXCH, and ZMXCP contribute the most SNPs to each chromosome.
+The visualization of their choice showed A vs C content in basal and derived groups with a little intro and interpretation.
+
+
+
+  
